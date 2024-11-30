@@ -1,0 +1,27 @@
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+env/
+.env
+
+# Gradio
+flagged/
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Chat history files
+chat_history_*.json
+
+# OS generated files
+.DS_Store
+Thumbs.db
