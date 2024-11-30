@@ -47,6 +47,7 @@ class ChatBot:
     def __init__(self):
         self.session_id = create_session()
         self.history = []
+        self.saved_chats = {}
 
     def interact(self, agent, message):
         try:
@@ -65,7 +66,27 @@ class ChatBot:
         filename = f"chat_history_{timestamp}.json"
         with open(filename, "w") as f:
             json.dump(self.history, f, indent=2)
+        self.saved_chats[filename] = self.history
         return filename
+
+    def load_chat(self, filename):
+        if filename in self.saved_chats:
+            self.history = self.saved_chats[filename]
+        else:
+            with open(filename, "r") as f:
+                self.history = json.load(f)
+            self.saved_chats[filename] = self.history
+        return self.history
+
+    def delete_chat(self, filename):
+        if filename in self.saved_chats:
+            del self.saved_chats[filename]
+        if os.path.exists(filename):
+            os.remove(filename)
+        return list(self.saved_chats.keys())
+
+    def get_saved_chats(self):
+        return list(self.saved_chats.keys())
 
 # Instantiate the chatbot
 chat_bot = ChatBot()
@@ -147,7 +168,7 @@ with gr.Blocks(theme=gr.themes.Soft()) as demo:
                 value="GeneralCodingAgent"
             )
         with gr.Column(scale=1):
-            save_button = gr.Button("Save Chat History")
+            save_button = gr.Button("Save Chat")
     
     chatbot_ui = gr.Chatbot(label="Chat with Robocoders Agent", height=400)
     user_msg = gr.Textbox(label="Enter your message", placeholder="Type your message here...")
@@ -156,7 +177,27 @@ with gr.Blocks(theme=gr.themes.Soft()) as demo:
         submit_button = gr.Button("Submit", variant="primary")
         clear_button = gr.Button("Clear Chat")
     
+    with gr.Row():
+        saved_chats = gr.Dropdown(label="Saved Chats", choices=chat_bot.get_saved_chats())
+        load_button = gr.Button("Load Chat")
+        delete_button = gr.Button("Delete Chat")
+    
     gr.Markdown("For more information, visit [CABLord's GitHub](https://github.com/CABLord)")
+    
+    def update_saved_chats():
+        return gr.Dropdown(choices=chat_bot.get_saved_chats())
+    
+    def load_saved_chat(filename):
+        if filename:
+            chat_history = chat_bot.load_chat(filename)
+            return [(msg, format_response(json.loads(resp))) for msg, resp in chat_history]
+        return None
+    
+    def delete_saved_chat(filename):
+        if filename:
+            chat_bot.delete_chat(filename)
+            return update_saved_chats()
+        return None
     
     user_msg.submit(user_input, [agent_selector, user_msg, chatbot_ui], [user_msg, chatbot_ui], queue=False).then(
         bot_response, [agent_selector, chatbot_ui], chatbot_ui
@@ -167,7 +208,9 @@ with gr.Blocks(theme=gr.themes.Soft()) as demo:
     )
     
     clear_button.click(lambda: None, None, chatbot_ui, queue=False)
-    save_button.click(save_chat_history, None, gr.Textbox(label="Save Status"))
+    save_button.click(save_chat_history, None, saved_chats).then(update_saved_chats, None, saved_chats)
+    load_button.click(load_saved_chat, saved_chats, chatbot_ui)
+    delete_button.click(delete_saved_chat, saved_chats, saved_chats)
 
 # Launch the Gradio app
 if __name__ == "__main__":
